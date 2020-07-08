@@ -1,19 +1,34 @@
-const app = require('express')();
-const http = require('http').createServer(app);
+const app = require('express')()
+const http = require('http').createServer(app)
+const io = require('socket.io')(http);
 
+app.get('/', (req, res) => {
+    res.send("Node Server is running. Yay!!")
+})
 
+io.on('connection', socket => {
+    //Get the chatID of the user and join in a room of the same chatID
+    chatID = socket.handshake.query.chatID
+    socket.join(chatID)
 
-app.get('/', (request, response) => response.send("Hello world"));
+    //Leave the room if the user closes the socket
+    socket.on('disconnect', () => {
+        socket.leave(chatID)
+    })
 
+    //Send message to only a particular user
+    socket.on('send_message', message => {
+        receiverChatID = message.receiverChatID
+        senderChatID = message.senderChatID
+        content = message.content
 
-//Socket logic
-const socketIo = require('socket.io')(http);
-
-socketIo.on('connection', (userSocket) => {
-    userSocket.on("send_message", (data) => {
-        console.log(JSON.stringify(data));
-        // response.end(JSON.stringify(urlParams));
-        userSocket.broadcast.emit("receive_message", data);
+        //Send message to only that particular room
+        socket.in(receiverChatID).emit('receive_message', {
+            'content': content,
+            'senderChatID': senderChatID,
+            'receiverChatID': receiverChatID,
+        })
     })
 });
-http.listen(process.env.PORT);
+
+http.listen(process.env.PORT)
